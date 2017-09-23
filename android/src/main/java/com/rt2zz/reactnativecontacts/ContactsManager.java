@@ -1,5 +1,6 @@
 package com.rt2zz.reactnativecontacts;
 
+import android.Manifest;
 import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -10,7 +11,9 @@ import android.provider.ContactsContract.CommonDataKinds;
 import android.provider.ContactsContract.CommonDataKinds.Organization;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.RawContacts;
+import android.support.annotation.NonNull;
 
+import com.facebook.react.ReactActivity;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -18,10 +21,13 @@ import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
+import com.facebook.react.modules.core.PermissionListener;
 
 import java.util.ArrayList;
 
 public class ContactsManager extends ReactContextBaseJavaModule {
+
+    private Callback callback;
 
     public ContactsManager(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -356,8 +362,38 @@ public class ContactsManager extends ReactContextBaseJavaModule {
      */
     @ReactMethod
     public void requestPermission(Callback callback) {
-        callback.invoke(null, isPermissionGranted());
+        if (isPermissionGranted().equals("authorized")) {
+            callback.invoke(null, true);
+            return;
+        }
+        String[] PERMISSIONS = {Manifest.permission.READ_CONTACTS};
+        if (this.getCurrentActivity() != null) {
+            this.callback = callback;
+            ((ReactActivity) this.getCurrentActivity()).requestPermissions(PERMISSIONS, 1, listener);
+        }
     }
+
+    private PermissionListener listener = new PermissionListener()
+    {
+        public boolean onRequestPermissionsResult(final int requestCode,
+                                                  @NonNull final String[] permissions,
+                                                  @NonNull final int[] grantResults)
+        {
+            boolean permissionsGranted = true;
+            for (int i = 0; i < permissions.length; i++) {
+                final boolean granted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
+                permissionsGranted = permissionsGranted && granted;
+            }
+
+            if (callback == null) {
+                return false;
+            }
+
+            callback.invoke(null, true);
+
+            return permissionsGranted;
+        }
+    };
 
     /*
      * Check if READ_CONTACTS permission is granted
